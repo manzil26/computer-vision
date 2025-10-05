@@ -1,0 +1,51 @@
+# pip install opencv-python #main modul 
+# pip install opencv-contrib-python # main modul + extra modul ( yg dipakai Contrib )
+# conda install -c conda-forge opencv
+
+#================================================
+#image detection biasa tanpa box 
+import cv2 
+#akses web cam 
+#id dari camera misalnya jika di laptop ada 2 camera maka bisa jadi 0 1 
+camera = cv2.VideoCapture(0)
+#looping video tak hingga gunananya untuk mendapatkan video, jadi vdieo meruoakan farame yang banyak jadi harus di looping 
+while True: 
+  _, frame = camera.read() #mendapatkan frame (mengolah gelombang analog jadi camera )
+  cv2.imshow("Camera", frame)
+  if cv2.waitKey(1) == ord('q'): #shorcut untuk mematikan camera 
+    break
+camera.release()
+cv2.destroyAllWindows()
+
+#================================================
+
+
+#image detection dengan box
+
+import cv2
+
+cascade_path = "haarcascade_frontalface_default.xml"
+clf = cv2.CascadeClassifier(cascade_path) #load classifier untuk mendeteksi wajah 
+
+camera = cv2.VideoCapture(0) #membuka web cam 
+
+while True: # ambil frame secara terus menerus
+    _, frame = camera.read()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) #konversi warna ke gray 
+    faces = clf.detectMultiScale( 
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        flags=cv2.CASCADE_SCALE_IMAGE,
+        minSize=(30, 30)
+    )
+
+    for (x, y, width, height) in faces:
+        cv2.rectangle(frame, (x, y), (x+width, y+height), (0, 0, 255), 2)
+
+    cv2.imshow("Camera", frame)
+    if cv2.waitKey(1) == ord('q'):
+        break
+
+camera.release()
+cv2.destroyAllWindows()
