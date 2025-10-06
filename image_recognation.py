@@ -10,12 +10,12 @@ dataset_path = "dataset/"
 if not os.path.exists(dataset_path):
     os.mkdir(dataset_path)
 
-person_id = int(input("Berapa orang yang akan dideteksi? "))
-max_images = 30 # max images to be taken for each person
+total_person = int(input("Berapa orang yang akan dideteksi? "))
+max_images = 500
 
-for person_id in range(1, person_id + 1):
+for person_id in range(1, total_person + 1):
     print(f"[INFO] Get ready to capture data for person ID {person_id}. Position your face in front of the camera.")
-    time.sleep(5) # Give 3 seconds to get ready
+    time.sleep(5)
     print("[INFO] Starting image capture...")
 
     count = 0
@@ -23,29 +23,23 @@ for person_id in range(1, person_id + 1):
         _, frame = cap.read()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = faceCascade.detectMultiScale(frame, scaleFactor=1.1,
-                                            minNeighbors=5, minSize=(30, 30))
+                                             minNeighbors=5, minSize=(30, 30))
 
-        for (x,y,w,h) in faces:
-            cv2.rectangle(frame, (x,y), (x+w, y+h), (255,0,0), 2)
-            count+=1
-            cv2.imwrite(dataset_path+"Person-"+str(person_id)
-                        +"-"+str(count)+".jpg", gray[y:y+h, x:x+w])
+        for (x, y, w, h) in faces:
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (255,0,0), 2)
+            count += 1
+            cv2.imwrite(dataset_path+f"Person-{person_id}-{count}.jpg", gray[y:y+h, x:x+w])
 
         cv2.imshow("Camera", frame)
-
-        
 
         if cv2.waitKey(1) == ord('q') or count >= max_images:
             break
 
     print(f"[INFO] Selesai mengambil {count} gambar untuk orang dengan ID {person_id}.")
-    if person_id > 1:
+    if person_id < total_person:
         print("Tekan tombol apa saja untuk melanjutkan ke orang berikutnya atau 'q' untuk keluar.")
         if cv2.waitKey(0) == ord('q'):
             break
-
-cap.release()
-cv2.destroyAllWindows()
 
 import cv2
 import numpy as np
