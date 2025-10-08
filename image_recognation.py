@@ -1,8 +1,12 @@
-#Face Recognation 
+# image_recognation.py
+# Face Recognition + tampilkan umur & status + wajah tak dikenal (merah)
 import cv2
 import os
 import time
+import numpy as np
+from datetime import datetime
 
+# === Inisialisasi ===
 faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 cap = cv2.VideoCapture(0)
 dataset_path = "dataset/"
@@ -10,130 +14,147 @@ dataset_path = "dataset/"
 if not os.path.exists(dataset_path):
     os.mkdir(dataset_path)
 
+# === Pengambilan Dataset ===
 total_person = int(input("Berapa orang yang akan dideteksi? "))
-max_images = 500
-
 for person_id in range(1, total_person + 1):
-    print(f"[INFO] Get ready to capture data for person ID {person_id}. Position your face in front of the camera.")
-    time.sleep(5)
-    print("[INFO] Starting image capture...")
-
+    print(f"[INFO] Siapkan wajah untuk ID {person_id}")
+    time.sleep(2)
     count = 0
     while True:
         _, frame = cap.read()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = faceCascade.detectMultiScale(frame, scaleFactor=1.1,
-                                             minNeighbors=5, minSize=(30, 30))
-
+        faces = faceCascade.detectMultiScale(gray, 1.3, 5)
         for (x, y, w, h) in faces:
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (255,0,0), 2)
             count += 1
-            cv2.imwrite(dataset_path+f"Person-{person_id}-{count}.jpg", gray[y:y+h, x:x+w])
-
-        cv2.imshow("Camera", frame)
-
-        if cv2.waitKey(1) == ord('q') or count >= max_images:
+            face_img = gray[y:y+h, x:x+w]
+            file_name = os.path.join(dataset_path, f"Person-{person_id}-{count}.jpg")
+            cv2.imwrite(file_name, face_img)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (255,0,0), 2)
+        cv2.imshow("Capture (press q to stop)", frame)
+        if cv2.waitKey(1) == ord('q') or count >= 50:
             break
+    print(f"[INFO] Selesai mengambil {count} gambar untuk ID {person_id}")
 
-    print(f"[INFO] Selesai mengambil {count} gambar untuk orang dengan ID {person_id}.")
-    if person_id < total_person:
-        print("Tekan tombol apa saja untuk melanjutkan ke orang berikutnya atau 'q' untuk keluar.")
-        if cv2.waitKey(0) == ord('q'):
-            break
+cap.release()
+cv2.destroyAllWindows()
 
-import cv2
-import numpy as np
-import os
+# === Fungsi Pendukung ===
+def checkDataset(path=dataset_path):
+    return any(f.endswith(".jpg") for f in os.listdir(path))
 
-def checkDataset(directory="dataset/"):
-    if os.path.exists(directory) and len(os.listdir(directory)) != 0:
-        return True
-    return False
+def organizeDataset(path=dataset_path):
+    faces, ids = [], []
+    for file in os.listdir(path):
+        if file.endswith(".jpg"):
+            try:
+                id = int(file.split("-")[1])
+                img = cv2.imread(os.path.join(path, file), cv2.IMREAD_GRAYSCALE)
+                faces.append(img)
+                ids.append(id)
+            except:
+                pass
+    return faces, np.array(ids, dtype=np.int32)
 
-def organizeDataset(path="dataset/"):
-    imagePath = [os.path.join(path, p) for p in os.listdir(path)]
-    faces = []
-    ids = np.array([], dtype="int")
-    for i in imagePath:
-        img = cv2.cvtColor(cv2.imread(i), cv2.COLOR_BGR2GRAY)
-        filename = os.path.basename(i)   
-        id = int(filename.split("-")[1]) 
-        face = faceCascade.detectMultiScale(img)
-        for (x, y, w, h) in face:
-            faces.append(img[y:y+h, x:x+w])
-            ids = np.append(ids, id)
-    return faces, ids
-
+# === Training Model ===
 if not checkDataset():
-    print("Dataset not found")
+    print("Dataset tidak ditemukan. Buat dataset terlebih dahulu.")
 else:
-    recognizer = cv2.face.LBPHFaceRecognizer.create()
-    faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-
-    # train faces
-    print("Training faces...")
+    print("[INFO] Training model wajah...")
+    recognizer = cv2.face.LBPHFaceRecognizer_create()
     faces, ids = organizeDataset()
-    recognizer.train(faces, ids)
-    print("Training finished!")
+    if len(faces) == 0:
+        print("[ERROR] Tidak ada wajah untuk dilatih.")
+    else:
+        recognizer.train(faces, ids)
+        recognizer.write("face-model.yml")
+        print("[INFO] Training selesai dan model tersimpan sebagai face-model.yml")
 
-    # save model
-    recognizer.write('face-model.yml')
-    print("Model saved as 'Face-model.yml'")
+# ...existing code...
+# === Input Nama & Tahun Lahir ===
+names = ["None"]
+birth_years = [None]
 
-import cv2
-
-recognizer = cv2.face.LBPHFaceRecognizer.create()
-recognizer.read("face-model.yml") # face model from face_training.py
-faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-font = cv2.FONT_HERSHEY_COMPLEX
-
-id = 0
-import os 
-# Ambil semua file gambar di folder dataset
-image_files = [f for f in os.listdir("dataset") if f.endswith(".jpg")]
-
-# Ambil ID unik dari nama file (misal: Person-1-5.jpg -> ID = 1)
-ids = set()
-for filename in image_files:
-    id = int(filename.split("-")[1])
-    ids.add(id)
-
-ids = sorted(list(ids))  # urutkan ID
-names = ["None"]         # index 0 tetap "None"
-
-for id in ids:
+for id in range(1, total_person + 1):
     name = input(f"Masukkan nama untuk ID {id}: ")
+    while True:
+        by = input(f"Masukkan tahun lahir untuk ID {id} (contoh: 1998): ")
+        try:
+            by_int = int(by)
+            if 1900 <= by_int <= datetime.now().year:
+                break
+            else:
+                print("Tahun lahir tidak valid.")
+        except:
+            print("Masukkan angka yang valid.")
     names.append(name)
+    birth_years.append(by_int)
+# ...existing code...
 
-print("List nama sesuai ID:", names)
-
+# === Pengenalan Wajah Real-Time ===
+recognizer = cv2.face.LBPHFaceRecognizer_create()
+if os.path.exists("face-model.yml"):
+    recognizer.read("face-model.yml")
+else:
+    print("[ERROR] Model tidak ditemukan.")
+    exit()
 
 cap = cv2.VideoCapture(0)
+font = cv2.FONT_HERSHEY_COMPLEX
+
+print("[INFO] Sistem pengenalan wajah dimulai. Tekan 'q' untuk keluar.")
 
 while True:
-    _, frame = cap.read()
+    ret, frame = cap.read()
+    if not ret:
+        break
+
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = faceCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5,
-                                         minSize=(30,30))
+    faces = faceCascade.detectMultiScale(gray, 1.3, 5)
 
-    for (x,y,w,h) in faces:
-        cv2.rectangle(frame, (x,y), (x+w, y+h), (255,0,0), 2)
-        id, confidence = recognizer.predict(gray[y:y+h, x:x+w])
+    for (x, y, w, h) in faces:
+        face_roi = gray[y:y+h, x:x+w]
+        id_pred, confidence = recognizer.predict(face_roi)
 
+        display_name = "Tidak Terdeteksi"
+        display_conf = f"{round(100 - confidence)}%"
+        display_age = ""
+        display_status = ""
+        color = (0, 0, 255)  # default merah untuk tidak terdeteksi
+
+        # Jika confidence tinggi → wajah dikenali
         if confidence < 100:
-            if id < len(names):
-                    id = names[id]
-        else:
-             id = "unknown"
-        confidence = "{}%".format(round(100-confidence))
+            if 0 <= id_pred < len(names):
+                display_name = f"Nama: {names[id_pred]}"
+                birth_year = birth_years[id_pred]
+                if birth_year:
+                    age = datetime.now().year - birth_year
+                    display_age = f"Umur: {age}"
+                    display_status = "Status: Dewasa" if age >= 18 else "Status: Anak"
+                color = (0, 255, 0)  # hijau untuk terdeteksi
+            else:
+                display_name = "Tidak Terdeteksi"
 
-        cv2.putText(frame, str(id), (x+5, y-5), font, 1, (255,0,0), 1)
-        cv2.putText(frame, str(confidence), (x+5, y+h-5), font, 1,
-                    (255,255,0), 1)
+        # Kotak wajah (warna sesuai hasil)
+        cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
 
-    cv2.imshow("Camera", frame)
-    if cv2.waitKey(1) == ord("q"):
+        # Semua keterangan di atas wajah
+        y_offset = y - 10
+        line_height = 25
+        info_lines = [display_name]
+        if display_age:
+            info_lines.append(display_age)
+        if display_status:
+            info_lines.append(display_status)
+        info_lines.append(f"Confidence: {display_conf}")
+
+        for i, text in enumerate(info_lines[::-1]):
+            y_pos = y_offset - i * line_height
+            cv2.putText(frame, text, (x, max(30, y_pos)), font, 0.6, color, 2)
+
+    cv2.imshow("Pengenalan Wajah", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 cap.release()
 cv2.destroyAllWindows()
+print("[INFO] Program dihentikan.")
